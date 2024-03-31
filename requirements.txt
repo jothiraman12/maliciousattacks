@@ -2,3 +2,4 @@ Flask
 Flask-WTF
 Flask-Login
 pymysql
+flask_sqlalchemy
