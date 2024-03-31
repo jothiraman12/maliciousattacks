@@ -1,22 +1,24 @@
+import csv
 from flask import Flask, render_template, request, redirect, url_for, flash
-from flask_sqlalchemy import SQLAlchemy
 
 app = Flask(__name__)
-# Configure MySQL connection details
-app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://bqhhpuetzn@serverfordatastorage.mysql.database.azure.com/maliciousattackdb'
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SECRET_KEY'] = 'your_secret_key'
 
-db = SQLAlchemy(app)
+# File paths for CSV data
+USERS_CSV = 'users.csv'
+MALICIOUS_URLS_CSV = 'malicious_urls.csv'
+LOGS_CSV = 'logs.csv'
 
-class User(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(80), unique=True, nullable=False)
-    email = db.Column(db.String(120), unique=True, nullable=False)
-    password = db.Column(db.String(80), nullable=False)
+def write_to_csv(filename, data):
+    with open(filename, mode='a', newline='') as file:
+        writer = csv.writer(file)
+        writer.writerow(data)
 
-    def __repr__(self):
-        return f'<User {self.username}>'
+def read_csv(filename):
+    with open(filename, mode='r', newline='') as file:
+        reader = csv.reader(file)
+        data = [row for row in reader]
+    return data
 
 # Routes
 @app.route('/')
@@ -31,21 +33,19 @@ def register():
         password = request.form['password']
 
         # Check if username or email already exists
-        existing_user = User.query.filter_by(username=username).first()
-        existing_email = User.query.filter_by(email=email).first()
+        users = read_csv(USERS_CSV)
+        for user in users:
+            if user[0] == username:
+                flash('Username already exists! Please choose a different one.', 'error')
+                return redirect(url_for('register'))
+            if user[1] == email:
+                flash('Email address already exists! Please use a different one.', 'error')
+                return redirect(url_for('register'))
 
-        if existing_user:
-            flash('Username already exists! Please choose a different one.', 'error')
-            return redirect(url_for('register'))
-        elif existing_email:
-            flash('Email address already exists! Please use a different one.', 'error')
-            return redirect(url_for('register'))
-        else:
-            new_user = User(username=username, email=email, password=password)
-            db.session.add(new_user)
-            db.session.commit()
-            flash('Registration successful! Please log in.', 'success')
-            return redirect(url_for('login'))
+        new_user = [username, email, password]
+        write_to_csv(USERS_CSV, new_user)
+        flash('Registration successful! Please log in.', 'success')
+        return redirect(url_for('login'))
 
     return render_template('register.html')
 
@@ -55,17 +55,16 @@ def login():
         username = request.form['username']
         password = request.form['password']
 
-        user = User.query.filter_by(username=username).first()
+        users = read_csv(USERS_CSV)
+        for user in users:
+            if user[0] == username and user[2] == password:
+                flash('Login successful!', 'success')
+                return redirect(url_for('home'))
 
-        if user and user.password == password:
-            flash('Login successful!', 'success')
-            return redirect(url_for('home'))
-        else:
-            flash('Invalid username or password. Please try again.', 'error')
-            return redirect(url_for('login'))
+        flash('Invalid username or password. Please try again.', 'error')
+        return redirect(url_for('login'))
 
     return render_template('login.html')
 
 if __name__ == '__main__':
-    db.create_all()
     app.run(debug=True)
