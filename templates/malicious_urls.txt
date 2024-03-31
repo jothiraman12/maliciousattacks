@@ -1,0 +1,3 @@
+https://malicious-site.com
+https://phishing-example.org
+http://scam-site.net
