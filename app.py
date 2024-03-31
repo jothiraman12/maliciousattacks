@@ -28,9 +28,9 @@ def home():
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     if request.method == 'POST':
-        username = request.form['username']
-        email = request.form['email']
-        password = request.form['password']
+        username = request.formss['username']
+        email = request.formss['email']
+        password = request.formss['password']
 
         # Check if username or email already exists
         users = read_csv(USERS_CSV)
@@ -52,8 +52,8 @@ def register():
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        username = request.form['username']
-        password = request.form['password']
+        username = request.formss['username']
+        password = request.formss['password']
 
         users = read_csv(USERS_CSV)
         for user in users:
