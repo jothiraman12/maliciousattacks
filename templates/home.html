@@ -1,23 +1,14 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Home</title>
-</head>
-<body>
-    <h1>Welcome to the Malicious URL Detection System</h1>
-    <p>This system helps detect and manage malicious URLs.</p>
+{% extends 'base.html' %}
 
-    <h2>Navigation</h2>
-    <ul>
-        <li><a href="{{ url_for('register') }}">Register</a></li>
-        <li><a href="{{ url_for('login') }}">Login</a></li>
-    </ul>
+{% block title %}Home{% endblock %}
 
-    <h2>About</h2>
-    <p>This application is built using Flask, a lightweight WSGI web application framework. It demonstrates basic user registration and login functionalities.</p>
-
-    <h2>Contact</h2>
-    <p>If you have any questions, please contact us at contact@maliciousurldetection.com</p>
-</body>
-</html>
+{% block content %}
+    <h1>Welcome to Malicious App Detection</h1>
+    <p>This is the home page. You can put your content here.</p>
+    {% if current_user.is_authenticated %}
+        <p>Welcome, {{ current_user.username }}!</p>
+        <p><a href="{{ url_for('main.logout') }}">Logout</a></p>
+    {% else %}
+        <p><a href="{{ url_for('main.login') }}">Login</a> or <a href="{{ url_for('main.register') }}">Register</a></p>
+    {% endif %}
+{% endblock %}

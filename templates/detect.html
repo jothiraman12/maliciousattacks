@@ -1,0 +1,10 @@
+{% extends 'base.html' %}
+
+{% block content %}
+    <h2>Malicious URL Detection</h2>
+    <form method="post">
+        <input type="hidden" name="username" value="{{ username }}">
+        <input type="text" name="url" placeholder="Enter URL" required><br><br>
+        <input type="submit" value="Detect">
+    </form>
+{% endblock %}
