@@ -27,7 +27,7 @@ def detect_malicious(url):
             else:
                 return "Malicious"
         except:
-            return "The URL is not available in the list of Malicious URLs Provided. Seems to be a Safe URL"
+            return "The provided url is not logged in my Malicious URL list.This maybe Considered as Safe URL"
 
 @app.route('/')
 def home():
