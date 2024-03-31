@@ -1,70 +1,76 @@
-import csv
-from flask import Flask, render_template, request, redirect, url_for, flash
+from flask import Flask, render_template, request, redirect, url_for
+import pandas as pd
+import requests
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'your_secret_key'
 
-# File paths for CSV data
-USERS_CSV = 'users.csv'
-MALICIOUS_URLS_CSV = 'malicious_urls.csv'
-LOGS_CSV = 'logs.csv'
+# Load users and logs from CSV files
+users_df = pd.read_csv('data/users.csv')
+logs_df = pd.read_csv('data/logs.csv')
 
-def write_to_csv(filename, data):
-    with open(filename, mode='a', newline='') as file:
-        writer = csv.writer(file)
-        writer.writerow(data)
+# Load malicious URLs from CSV file
+malicious_urls = pd.read_csv('urls.csv')['url'].tolist()
 
-def read_csv(filename):
-    with open(filename, mode='r', newline='') as file:
-        reader = csv.reader(file)
-        data = [row for row in reader]
-    return data
+def save_logs(username, url, result):
+    logs_df = pd.read_csv('data/logs.csv')
+    logs_df = logs_df.append({'Username': username, 'URL': url, 'Result': result}, ignore_index=True)
+    logs_df.to_csv('data/logs.csv', index=False)
 
-# Routes
+def detect_malicious(url):
+    if url in malicious_urls:
+        return "Malicious"
+    else:
+        try:
+            response = requests.get(url)
+            if response.status_code == 200:
+                return "Safe"
+            else:
+                return "Malicious"
+        except:
+            return "The URL is not available in the list of Malicious URLs Provided. Seems to be a Safe URL"
+
 @app.route('/')
 def home():
-    return render_template('home.html')
-
-@app.route('/register', methods=['GET', 'POST'])
-def register():
-    if request.method == 'POST':
-        username = request.formss['username']
-        email = request.formss['email']
-        password = request.formss['password']
-
-        # Check if username or email already exists
-        users = read_csv(USERS_CSV)
-        for user in users:
-            if user[0] == username:
-                flash('Username already exists! Please choose a different one.', 'error')
-                return redirect(url_for('register'))
-            if user[1] == email:
-                flash('Email address already exists! Please use a different one.', 'error')
-                return redirect(url_for('register'))
-
-        new_user = [username, email, password]
-        write_to_csv(USERS_CSV, new_user)
-        flash('Registration successful! Please log in.', 'success')
-        return redirect(url_for('login'))
-
-    return render_template('register.html')
+    return redirect(url_for('login'))
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        username = request.formss['username']
-        password = request.formss['password']
-
-        users = read_csv(USERS_CSV)
-        for user in users:
-            if user[0] == username and user[2] == password:
-                flash('Login successful!', 'success')
-                return redirect(url_for('home'))
-
-        flash('Invalid username or password. Please try again.', 'error')
-        return redirect(url_for('login'))
-
+        username = request.form['username']
+        password = request.form['password']
+        if check_credentials(username, password):
+            return redirect(url_for('detect'))
+        else:
+            return render_template('login.html')
     return render_template('login.html')
+
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    if request.method == 'POST':
+        username = request.form['username']
+        password = request.form['password']
+        if username not in users_df['Username'].values:
+            users_df = users_df.append({'Username': username, 'Password': password}, ignore_index=True)
+            users_df.to_csv('data/users.csv', index=False)
+            return redirect(url_for('login'))
+        else:
+            return render_template('register.html')
+    return render_template('register.html')
+
+@app.route('/detect', methods=['GET', 'POST'])
+def detect():
+    if request.method == 'POST':
+        url = request.form['url']
+        result = detect_malicious(url)
+        username = request.form['username'] if 'username' in request.form else 'Guest'
+        save_logs(username, url, result)
+        return render_template('results.html', url=url, result=result)
+    # If it's a GET request or no username was found
+    return render_template('detect.html', username='Guest')
+
+def check_credentials(username, password):
+    return (username in users_df['Username'].values) and \
+           (password == users_df.loc[users_df['Username'] == username, 'Password'].values[0])
 
 if __name__ == '__main__':
     app.run(debug=True)
