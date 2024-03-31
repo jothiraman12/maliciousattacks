@@ -1,103 +1,71 @@
 from flask import Flask, render_template, request, redirect, url_for, flash
-from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required
-from flask_wtf import FlaskForm
-from wtforms import StringField, PasswordField, SubmitField
-from wtforms.validators import InputRequired, Length
-from werkzeug.security import generate_password_hash, check_password_hash
+from flask_sqlalchemy import SQLAlchemy
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'your_secret_key_here'
+# Configure MySQL connection details
+app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://bqhhpuetzn@serverfordatastorage.mysql.database.azure.com/maliciousattackdb'
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['SECRET_KEY'] = 'your_secret_key'
 
-# Configure Flask-Login
-login_manager = LoginManager()
-login_manager.init_app(app)
-login_manager.login_view = 'login'
+db = SQLAlchemy(app)
 
-# Sample User Model (Replace with your database model)
-class User(UserMixin):
-    def __init__(self, username):
-        self.username = username
+class User(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(80), unique=True, nullable=False)
+    email = db.Column(db.String(120), unique=True, nullable=False)
+    password = db.Column(db.String(80), nullable=False)
 
-    @staticmethod
-    def get(username):
-        # Replace this with your database query to get user by username
-        return users.get(username)
+    def __repr__(self):
+        return f'<User {self.username}>'
 
-# Sample dictionary acting as a database for users (Replace with database)
-users = {'user1': User('user1')}
-malicious_urls = set()
-with open('malicious_urls.txt', 'r') as f:
-    for line in f:
-        malicious_urls.add(line.strip())
-
-@login_manager.user_loader
-def load_user(user_id):
-    return users.get(user_id)
-
-# Sample login form
-class LoginForm(FlaskForm):
-    username = StringField('Username', validators=[InputRequired(), Length(min=4, max=20)])
-    password = PasswordField('Password', validators=[InputRequired(), Length(min=8, max=80)])
-    submit = SubmitField('Login')
-
-# Sample registration form
-class RegistrationForm(FlaskForm):
-    username = StringField('Username', validators=[InputRequired(), Length(min=4, max=20)])
-    password = PasswordField('Password', validators=[InputRequired(), Length(min=8, max=80)])
-    submit = SubmitField('Register')
-
-@app.route('/', methods=['GET', 'POST'])
+# Routes
+@app.route('/')
 def home():
-    if request.method == 'POST':
-        url = request.form['url']
-        result = check_malicious(url)
-        return render_template('index.html', result=result, url=url)
-    return render_template('index.html', result=None, url=None)
-
-@app.route('/login', methods=['GET', 'POST'])
-def login():
-    form = LoginForm()
-    if form.validate_on_submit():
-        user = users.get(form.username.data)
-        if user and check_password_hash(user.password, form.password.data):
-            login_user(user)
-            flash('Logged in successfully.', 'success')
-            return redirect(url_for('home'))
-        else:
-            flash('Invalid username or password.', 'error')
-    return render_template('login.html', form=form)
+    return render_template('home.html')
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
-    form = RegistrationForm()
-    if form.validate_on_submit():
-        username = form.username.data
-        if username in users:
-            flash('Username already taken.', 'error')
+    if request.method == 'POST':
+        username = request.form['username']
+        email = request.form['email']
+        password = request.form['password']
+
+        # Check if username or email already exists
+        existing_user = User.query.filter_by(username=username).first()
+        existing_email = User.query.filter_by(email=email).first()
+
+        if existing_user:
+            flash('Username already exists! Please choose a different one.', 'error')
+            return redirect(url_for('register'))
+        elif existing_email:
+            flash('Email address already exists! Please use a different one.', 'error')
+            return redirect(url_for('register'))
         else:
-            hashed_password = generate_password_hash(form.password.data, method='sha256')
-            users[username] = User(username, hashed_password)
-            flash('Registration successful. Please log in.', 'success')
+            new_user = User(username=username, email=email, password=password)
+            db.session.add(new_user)
+            db.session.commit()
+            flash('Registration successful! Please log in.', 'success')
             return redirect(url_for('login'))
-    return render_template('register.html', form=form)
 
-@app.route('/logout')
-@login_required
-def logout():
-    logout_user()
-    flash('Logged out successfully.', 'success')
-    return redirect(url_for('home'))
+    return render_template('register.html')
 
-@login_manager.unauthorized_handler
-def unauthorized():
-    flash('You must be logged in to access this page.', 'error')
-    return redirect(url_for('login'))
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        username = request.form['username']
+        password = request.form['password']
 
-def check_malicious(url):
-    if url in malicious_urls:
-        return f"The URL '{url}' is detected as malicious."
-    else:
-        return f"The URL '{url}' is safe."
+        user = User.query.filter_by(username=username).first()
+
+        if user and user.password == password:
+            flash('Login successful!', 'success')
+            return redirect(url_for('home'))
+        else:
+            flash('Invalid username or password. Please try again.', 'error')
+            return redirect(url_for('login'))
+
+    return render_template('login.html')
 
 if __name__ == '__main__':
+    db.create_all()
     app.run(debug=True)
