@@ -1,0 +1,3 @@
+Username,URL,Result
+user1,https://example.com,Malicious
+user2,https://example2.com,Safe
